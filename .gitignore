@@ -1,0 +1,44 @@
+# ----------------------
+# Environment variables
+# ----------------------
+.env
+.env.*
+!.env.example
+
+# ----------------------
+# Python cache / bytecode
+# ----------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ----------------------
+# Virtual environments
+# ----------------------
+venv/
+env/
+ENV/
+.venv/
+
+# ----------------------
+# Jupyter Notebook
+# ----------------------
+.ipynb_checkpoints/
+
+# ----------------------
+# Logs
+# ----------------------
+*.log
+
+# ----------------------
+# OS files
+# ----------------------
+.DS_Store
+Thumbs.db
+
+# ----------------------
+# Project-specific data
+# ----------------------
+raw_data
+raw_data/
+raw_data.*
