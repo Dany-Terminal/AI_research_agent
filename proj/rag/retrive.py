@@ -50,7 +50,7 @@ You are an intelligent research assistant.
 
 Use the information provided below.
 
-If answer is not present, u may continue with your answer how ever do specify "The following question isnt generic and will be answerd as per LLM". This statement must be written before You give your own answer.
+If answer is not present, u may continue with your answer how ever do specify "The following question is generic and will be answerd as per LLM". This statement must be written before You give your own answer.
 
 ---
 
