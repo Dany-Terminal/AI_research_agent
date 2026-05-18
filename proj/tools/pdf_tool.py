@@ -1,12 +1,14 @@
 import json
 import os
-import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
 
 from rag.ingest import ingest_pdf
 
-# Load stored chunks
+# =========================================================
+# CONFIG
+# =========================================================
+
 CHUNKS_PATH = "../rag/chunks.json"
 INDEX_PATH = "../rag/faiss_index.index"
 
@@ -46,7 +48,6 @@ def retrieve_pdf_chunks(query, pdf_name, top_k=5):
 
         chunk = chunks[i]
 
-        # 🔥 IMPORTANT FILTER
         if chunk["paper_id"] == pdf_name:
             results.append(chunk["text"])
 
@@ -57,22 +58,41 @@ def retrieve_pdf_chunks(query, pdf_name, top_k=5):
 
 
 # =========================================================
-# 🧠 MAIN TOOL
+# 🧠 MAIN TOOL (FINAL VERSION)
 # =========================================================
 
-def pdf_tool(pdf_path, query, llm_client):
+def pdf_tool(pdf_path: str, query: str, llm_client, top_k: int = 5) -> dict:
+    """
+    PDF Tool (callable from router)
+
+    Returns:
+        dict:
+        {
+            "tool": "pdf",
+            "answer": str,
+            "pdf_name": str,
+            "found": bool
+        }
+    """
+
     pdf_name = os.path.basename(pdf_path)
 
-    # 1. INGEST FIRST (incremental safe)
+    # 🔹 Step 1: Ingest (safe incremental)
     ingest_pdf(pdf_path)
 
-    # 2. RETRIEVE ONLY THIS PDF
-    context = retrieve_pdf_chunks(query, pdf_name)
+    # 🔹 Step 2: Retrieve
+    context = retrieve_pdf_chunks(query, pdf_name, top_k)
 
+    # 🔹 Step 3: Handle no context
     if not context.strip():
-        return "No relevant content found in this PDF."
+        return {
+            "tool": "pdf",
+            "answer": "Not found in document.",
+            "pdf_name": pdf_name,
+            "found": False
+        }
 
-    # 3. LLM PROMPT (IMPORTANT PART)
+    # 🔹 Step 4: LLM call (inside tool as you wanted)
     prompt = f"""
 You are a strict research assistant.
 
@@ -102,4 +122,11 @@ Answer clearly and accurately:
         ]
     )
 
-    return response.choices[0].message.content
+    answer = response.choices[0].message.content
+
+    return {
+        "tool": "pdf",
+        "answer": answer,
+        "pdf_name": pdf_name,
+        "found": True
+    }
