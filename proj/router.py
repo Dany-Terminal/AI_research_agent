@@ -16,7 +16,8 @@ from tools.pdf_tool import pdf_tool
 from tools.web_tool import web_search_tool, research_paper_tool
 from rag.rag_retrival import rag_tool, retrieve
 
-
+#memory
+from memory.memory import get_context, add_interaction
 # =========================================================
 # 📊 FAISS SCORE
 # =========================================================
@@ -177,60 +178,105 @@ FINAL ANSWER:
 
     return res.choices[0].message.content
 
+def rewrite_query(query, context):
+    prompt = f"""
+Rewrite the query using context if needed.
 
+RULES:
+- Resolve references like "it", "that", "previous"
+- Keep original intent
+- If no rewrite needed, return original query
+
+Context:
+{context}
+
+Query:
+{query}
+
+Rewritten Query:
+"""
+
+    res = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.1
+    )
+
+    return res.choices[0].message.content.strip()
 # =========================================================
 # 🚀 MAIN ROUTER
 # =========================================================
 def run_router(query: str):
 
-    #PDF extractor
+    # ---------------- PDF DIRECT ----------------
     pdf_path = extract_pdf_path(query)
     if pdf_path and os.path.exists(pdf_path):
-        return pdf_tool(pdf_path, query, client)
+        result = pdf_tool(pdf_path, query, client)
+        add_interaction(query, str(result))
+        return result
 
-    # 1. RAG score
-    rag_score = get_rag_score(query)
+    # ---------------- 🧠 MEMORY ----------------
+    context = get_context()
 
-    # 2. LLM plans tools (DSL)
-    plan = plan_tools(query, rag_score)
+    # ---------------- 🧠 QUERY REWRITE ----------------
+    rewritten_query = rewrite_query(query, context)
 
-    # 3. Execute tools
-    tool_outputs = execute_tools(plan, query)
+    print(f"\n🧠 Rewritten Query: {rewritten_query}\n")  # optional debug
 
-    # 4. If single tool → return directly
+    # ---------------- 🧠 ENHANCED QUERY ----------------
+    enhanced_query = f"""
+Conversation Context:
+{context}
+
+User Query:
+{rewritten_query}
+"""
+
+    # ---------------- 📊 RAG SCORE ----------------
+    rag_score = get_rag_score(enhanced_query)
+
+    # ---------------- 🧠 PLAN ----------------
+    plan = plan_tools(enhanced_query, rag_score)
+
+    # ---------------- ⚙️ EXECUTE ----------------
+    tool_outputs = execute_tools(plan, enhanced_query)
+
+    # ---------------- ✅ SINGLE TOOL ----------------
     if len(tool_outputs) == 1:
-        return tool_outputs[0]["output"]
+        result = tool_outputs[0]["output"]
+        add_interaction(query, str(result))
+        return result
 
-    # 5. Multi-tool → final synthesis
+    # ---------------- ❌ NO TOOL ----------------
     if len(tool_outputs) == 0:
-        return "No tools were triggered for this query."
+        final_answer = "No tools were triggered for this query."
+        add_interaction(query, final_answer)
+        return final_answer
 
-    return generate_final_answer(query, tool_outputs)
+    # ---------------- 🧠 FINAL ANSWER ----------------
+    final_answer = generate_final_answer(enhanced_query, tool_outputs)
 
+    add_interaction(query, final_answer)
+
+    return final_answer
 #clean print result
 def pretty_print(result):
     import json
 
     print("\n" + "─" * 60)
 
-    # CASE 1: dict output from tool
     if isinstance(result, dict):
 
         tool = result.get("tool", "unknown")
         print(f"🧠 Tool Used: {tool.upper()}")
 
-        # PDF specific
-        if tool == "pdf":
-            if "pdf_name" in result:
-                print(f"📄 Source: {result['pdf_name']}")
+        if tool == "pdf" and "pdf_name" in result:
+            print(f"📄 Source: {result['pdf_name']}")
 
         print("\n📖 Answer:\n")
-
-        # prefer "answer", fallback to "content"
         print(result.get("answer") or result.get("content") or json.dumps(result, indent=2))
 
     else:
-        # CASE 2: plain string output
         print("\n📖 Answer:\n")
         print(result)
 

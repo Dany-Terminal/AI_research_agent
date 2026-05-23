@@ -9,8 +9,8 @@ from rag.ingest import ingest_pdf
 # CONFIG
 # =========================================================
 
-CHUNKS_PATH = "../rag/chunks.json"
-INDEX_PATH = "../rag/faiss_index.index"
+CHUNKS_PATH = "rag/chunks.json"
+INDEX_PATH = "rag/faiss_index.index"
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
